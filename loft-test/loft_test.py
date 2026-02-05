@@ -212,7 +212,7 @@ def loss_fn(output):
     return ((output - A) ** 2).sum()
 
 def run_loft():
-    from loft import LoFTLinear, LoFTAdamW
+    from loft_back import LoFTLinear, LoFTAdamW
 
     model_loft = SimpleModel(in_features=n, out_features=m, rank=r)
     # replace linear layer with LoFTLinear

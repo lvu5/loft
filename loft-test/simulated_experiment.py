@@ -4,12 +4,12 @@ from torch.optim import AdamW
 import loralib as lora
 import torch.nn as nn
 import random
-random.seed(0)
+torch.manual_seed(0)
 
 
 m, n, r = 1024, 512, 8
 steps = 300
-lr = 1e-2   # tune this on full FT first
+lr = 1e-4  
 lr_full = lr
 lr_lora = lr
 lr_loft = lr
@@ -35,7 +35,49 @@ class DenseModel(nn.Module):
         return self.linear(x)
 
 A = torch.randn(m, r) @ torch.randn(r, n)
-A = A / math.sqrt(r)
+
+# def generate_hard_rank_r_matrix(
+#     m, n, r,
+#     decay=6.0,        # larger = harder
+#     device=None,
+#     dtype=torch.float32,
+# ):
+#     U, _ = torch.linalg.qr(torch.randn(m, r, device=device, dtype=dtype))
+#     V, _ = torch.linalg.qr(torch.randn(n, r, device=device, dtype=dtype))
+
+#     # exponentially decaying singular values
+#     s = torch.exp(-decay * torch.arange(r, device=device, dtype=dtype) / r)
+#     S = torch.diag(s)
+
+#     A = U @ S @ V.T
+#     return A, s
+
+# m, n, r = 1024, 512, 8
+# A, s = generate_hard_rank_r_matrix(m, n, r)
+
+# def generate_lora_unfriendly_matrix(m, n, r, device=None):
+#     U, _ = torch.linalg.qr(torch.randn(m, r, device=device))
+#     V, _ = torch.linalg.qr(torch.randn(n, r, device=device))
+
+#     # one dominant direction, rest tiny but nonzero
+#     s = torch.tensor([1.0] + [1e-3] * (r - 1), device=device)
+#     A = U @ torch.diag(s) @ V.T
+#     return A, s
+
+# A, s = generate_lora_unfriendly_matrix(1024, 512, 8)
+
+# def generate_lora_unfriendly_matrix(m, n, r, device=None):
+#     U, _ = torch.linalg.qr(torch.randn(m, r, device=device))
+#     V, _ = torch.linalg.qr(torch.randn(n, r, device=device))
+
+#     # one dominant direction, rest tiny but nonzero
+#     s = torch.tensor([1.0] + [1e-3] * (r - 1), device=device)
+#     A = U @ torch.diag(s) @ V.T
+#     return A, s
+
+# A, s = generate_lora_unfriendly_matrix(1024, 512, 8)
+
+
 
 def loss_fn(output):
     return ((output - A) ** 2).sum()
@@ -48,7 +90,6 @@ def run_lora():
     # confirming trainable parameters
     # for name, param in model.named_parameters():
     #     print(f"{name}: {param.requires_grad}")
-            
     for i in range(steps):
         optimizer.zero_grad()
         x = torch.eye(n)
@@ -61,7 +102,7 @@ def run_lora():
     return loss_lora
 
 def run_full_ft():
-    model_full = DenseModel(in_features=n, out_features=m)
+    model_full = SimpleModel(in_features=n, out_features=m, rank=r)
     # make all parameters trainable
     for param in model_full.parameters():
         param.requires_grad = True
@@ -83,12 +124,14 @@ def run_full_ft():
 def run_loft():
     from loft import LoFTLinear, LoFTAdamW
 
-    model_loft = SimpleModel(in_features=n, out_features=m, rank=r)
+    model_loft = DenseModel(in_features=n, out_features=m)
     # replace linear layer with LoFTLinear
-    model_loft.linear = LoFTLinear(nn.Linear(n, m), rank=r)
+    model_loft.linear = LoFTLinear(model_loft.linear, rank=r)
+    
 
     # make only U and V trainable
     for name, param in model_loft.named_parameters():
+        print(name, param)
         if ".U" in name or ".V" in name:
             param.requires_grad = True
         else:
@@ -129,10 +172,18 @@ plt.plot(loss_full, label="Full Fine-Tuning")
 plt.plot(loss_lora, label="LoRA")
 plt.plot(loss_loft, label="LoFT")
 
+# print lists to losses.txt, indicating which is which
+# with open("losses.txt", "w") as f:
+#     f.write("Full Fine-Tuning:\n")
+#     f.write(", ".join([str(x) for x in loss_full]) + "\n")
+#     f.write("LoRA:\n")
+#     f.write(", ".join([str(x) for x in loss_lora]) + "\n")
+#     f.write("LoFT:\n")
+#     f.write(", ".join([str(x) for x in loss_loft]) + "\n")
+
 plt.xlabel("Steps")
 plt.ylabel("Loss")
 plt.legend()
 plt.grid(True)
 # save the figure
 plt.savefig("ft_vs_lora.png")
-plt.show()

@@ -47,7 +47,7 @@ class LoFTAdamW(Optimizer):
                 m = U.shape[0]
                 r = U.shape[1]
                 state["step"] = 0
-                state["update_U"] = False
+                state["update_U"] = True
                 n = V.shape[0]
                 # First moments
                 state["mU"] = torch.zeros_like(U)
@@ -72,12 +72,12 @@ class LoFTAdamW(Optimizer):
             projection_U_k = U.T @ U # (U_k^T U_k) shape (r, r)
             projection_V_k = V.T @ V # (V_k^T V_k) shape (r, r)
             
-            projection_U_k_inv = torch.linalg.pinv(projection_U_k) # shape (r, r)
-            projection_V_k_inv = torch.linalg.pinv(projection_V_k) # shape (r, r)
+            projection_U_k_inv = safe_pinv_gram(projection_U_k) # shape (r, r)
+            projection_V_k_inv = safe_pinv_gram(projection_V_k) # shape (r, r)
 
             # Calibration matrices (PLACEHOLDERS)
-            C_k_V  = (state["V_k_1"].T @ V) @ (torch.linalg.pinv(projection_V_k)) # shape (r, r)
-            C_k_U  = (state["U_k_1"].T @ U) @ (torch.linalg.pinv(projection_U_k)) # shape (r, r)
+            C_k_V  = (state["V_k_1"].T @ V) @ (safe_pinv_gram(projection_V_k)) # shape (r, r)
+            C_k_U  = (state["U_k_1"].T @ U) @ (safe_pinv_gram(projection_U_k)) # shape (r, r)
             
             # gradient projection
             gU_tilde = gU @ projection_V_k_inv # shape (m, r)
