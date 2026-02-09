@@ -17,6 +17,7 @@ class LoFTLinear(nn.Module):
         # same initialization values as Lore
         self.U = nn.Parameter(torch.zeros((self.out_features, rank)))
         self.V = nn.Parameter(torch.zeros((self.in_features, rank)))
+        
         nn.init.zeros_(self.U)
         nn.init.kaiming_uniform_(self.V, a=math.sqrt(5))
         

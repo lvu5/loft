@@ -1,6 +1,6 @@
 import torch
 from torch.optim.optimizer import Optimizer, required
-from .utils import loft_pinv_gram, rowwise_khatri_rao, safe_pinv_gram
+from .utils import loft_pinv_gram, rowwise_khatri_rao, safe_pinv_gram, khatri_rao_torch
 from tensorly.tenalg import khatri_rao
 
 class LoFTAdamW(Optimizer):
@@ -9,8 +9,8 @@ class LoFTAdamW(Optimizer):
         params,
         lr=required,
         betas=(0.9, 0.999),
-        eps=1e-8,
-        weight_decay=0.0,
+        eps=1e-08,
+        weight_decay=1e-4,
     ):
         defaults = dict(
             lr=lr,
@@ -102,7 +102,7 @@ class LoFTAdamW(Optimizer):
             state["pU_prev"].copy_(state["pU"])
             # Alternating updates
             if state["update_U"]:
-                vU_tilde = state["pU"] @ (khatri_rao([V.T, V.T])) # @ (r^2, n)
+                vU_tilde = state["pU"] @ (khatri_rao_torch(V.T, V.T)) # @ (r^2, n)
                 #print("vU_tilde",vU_tilde)
                 mU_tilde = state["mU"] @ V.T / (1 - beta1 ** k)
                 #print("mU_tilde",mU_tilde)
@@ -119,7 +119,7 @@ class LoFTAdamW(Optimizer):
                 
             else:
                 # Reconstruct projected second moment (PLACEHOLDER)
-                vV = state["pV"] @ (khatri_rao([U.T, U.T])) # @ (r^2, m)
+                vV = state["pV"] @ (khatri_rao_torch(U.T, U.T)) # @ (r^2, m)
                 mV_tilde = state["mV"] @ U.T / (1 - beta1 ** k)
                 vV_tilde = vV / (1 - beta2 ** k)
                 vV_tilde = torch.clamp(vV_tilde, min=eps)

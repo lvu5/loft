@@ -9,7 +9,7 @@ torch.manual_seed(0)
 
 m, n, r = 1024, 512, 8
 steps = 300
-lr = 1e-4  
+lr = 1e-5
 lr_full = lr
 lr_lora = lr
 lr_loft = lr
@@ -80,7 +80,8 @@ A = torch.randn(m, r) @ torch.randn(r, n)
 
 
 def loss_fn(output):
-    return ((output - A) ** 2).sum()
+    #return ((output - A) ** 2).mean()
+    return torch.sum((output - A) ** 2)
 
 def run_lora():
     model = SimpleModel(in_features=n, out_features=m, rank=r)
